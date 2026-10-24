@@ -1,0 +1,1440 @@
+<title>Windowsmith</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Roboto:wght@400;500;700&family=Schibsted+Grotesk:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: three-column workbench. Widgets + layers | design canvas or generated code | inspector.
+   On phones one panel shows at a time, switched from a bottom bar. */
+:root{
+  --bg:#eceff1; --panel:#f8f9fa; --panel-2:#eef0f2; --line:#d3d8dc; --fg:#1a2025; --muted:#5d6974;
+  --accent:#d97f00; --accent-fg:#1d1300; --accent-soft:rgba(217,127,0,.14);
+  --desk:#dde2e5; --danger:#c22b2b; --good:#2b8a3e;
+  --syn-kw:#ad2f78; --syn-str:#17794a; --syn-num:#a8510a; --syn-com:#76828e; --syn-fn:#1c5db8; --syn-cls:#0b6e82;
+  --ui:'Schibsted Grotesk',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#101417; --panel:#181d21; --panel-2:#20262b; --line:#2c343a; --fg:#e5e9ec; --muted:#8996a1;
+    --accent:#f5a524; --accent-fg:#1d1300; --accent-soft:rgba(245,165,36,.16);
+    --desk:#0d1113; --danger:#ff8787; --good:#69db7c;
+    --syn-kw:#f783ac; --syn-str:#8ce99a; --syn-num:#ffc078; --syn-com:#6b7885; --syn-fn:#74c0fc; --syn-cls:#66d9e8;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#101417; --panel:#181d21; --panel-2:#20262b; --line:#2c343a; --fg:#e5e9ec; --muted:#8996a1;
+  --accent:#f5a524; --accent-fg:#1d1300; --accent-soft:rgba(245,165,36,.16);
+  --desk:#0d1113; --danger:#ff8787; --good:#69db7c;
+  --syn-kw:#f783ac; --syn-str:#8ce99a; --syn-num:#ffc078; --syn-com:#6b7885; --syn-fn:#74c0fc; --syn-cls:#66d9e8;
+  color-scheme:dark;
+}
+
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0; background:var(--bg); color:var(--fg); font:14px/1.4 var(--ui);
+  padding-left:max(16px,env(safe-area-inset-left,0px));
+  padding-right:max(16px,env(safe-area-inset-right,0px));
+  padding-block:12px;
+}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+[hidden]{display:none!important}
+
+#app{height:100%;display:flex;flex-direction:column;gap:10px;min-height:0}
+
+/* top bar */
+.top{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.brand{display:flex;align-items:center;gap:8px;font-weight:700;font-size:16px;letter-spacing:-.01em;margin-right:6px}
+.brand svg{color:var(--fg)}
+.spacer{flex:1 1 auto}
+.btn{
+  height:30px;padding:0 11px;border:1px solid var(--line);border-radius:7px;background:var(--panel);
+  display:inline-flex;align-items:center;gap:6px;white-space:nowrap;font-weight:500;font-size:13px;
+}
+.btn:hover:not(:disabled){background:var(--panel-2)}
+.btn:disabled{opacity:.4;cursor:default}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-fg);font-weight:600}
+.btn.primary:hover:not(:disabled){filter:brightness(1.06);background:var(--accent)}
+.btn.icon{width:30px;padding:0;justify-content:center}
+.btn.danger{color:var(--danger)}
+.btn.mini{height:24px;width:24px;padding:0;justify-content:center;border-radius:5px;font-size:13px;line-height:1}
+.btn svg{width:16px;height:16px;flex:none}
+
+input[type=text],input[type=number],select,textarea{
+  width:100%;min-width:0;height:28px;padding:0 8px;border:1px solid var(--line);border-radius:6px;background:var(--panel);
+}
+textarea{height:auto;padding:6px 8px;resize:vertical;line-height:1.4}
+select{padding-right:4px}
+input.bad{border-color:var(--danger)}
+input[type=color]{width:28px;height:28px;padding:2px;border:1px solid var(--line);border-radius:6px;background:var(--panel);flex:none}
+.top select{width:auto;height:30px;border-radius:7px;font-weight:500;font-size:13px}
+
+/* layout */
+.work{flex:1;min-height:0;display:grid;grid-template-columns:248px minmax(0,1fr) 304px;gap:10px}
+.panel,.center{background:var(--panel);border:1px solid var(--line);border-radius:10px;min-height:0;min-width:0}
+.panel{overflow:auto;display:flex;flex-direction:column}
+.panel>section{padding:12px}
+.panel h2,.pg h3{
+  margin:0 0 8px;font-size:11px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);
+}
+.left .layers{border-top:1px solid var(--line);flex:1;min-height:150px}
+
+/* widget palette */
+#palette{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:6px}
+.tile{
+  display:flex;align-items:center;gap:8px;height:34px;padding:0 9px;border:1px solid var(--line);border-radius:7px;
+  background:var(--panel);font-size:13px;text-align:left;touch-action:pan-y;user-select:none;
+}
+.tile:hover{border-color:var(--accent);background:var(--accent-soft)}
+.tile svg{width:18px;height:18px;flex:none;color:var(--muted)}
+.tile span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ghost{
+  position:fixed;z-index:50;pointer-events:none;transform:translate(-50%,-50%);padding:5px 10px;border-radius:6px;
+  background:var(--accent);color:var(--accent-fg);font-size:12px;font-weight:600;box-shadow:0 6px 18px rgba(0,0,0,.3);
+}
+
+/* layers */
+#layers{display:flex;flex-direction:column;gap:1px}
+.lrow{
+  display:flex;align-items:center;gap:7px;width:100%;height:28px;border:0;background:none;border-radius:6px;
+  padding:0 8px;text-align:left;font-size:13px;
+}
+.lrow:hover{background:var(--panel-2)}
+.lrow[aria-current=true]{background:var(--accent-soft);box-shadow:inset 0 0 0 1px var(--accent)}
+.lrow svg{width:15px;height:15px;flex:none;color:var(--muted)}
+.lrow .nm{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lrow .ty{margin-left:auto;font-size:11px;color:var(--muted);flex:none}
+.empty{color:var(--muted);font-size:13px;padding:6px 2px}
+
+/* centre */
+.center{display:flex;flex-direction:column;overflow:hidden}
+.ctools{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid var(--line)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:7px;overflow:hidden}
+.seg button{border:0;background:var(--panel);height:28px;padding:0 12px;font-size:13px;font-weight:500}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed=true]{background:var(--accent);color:var(--accent-fg);font-weight:600}
+.tool{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
+.tool select{width:auto;height:28px;color:var(--fg)}
+#pane-design,#pane-code{flex:1;min-height:0;display:flex;flex-direction:column}
+#stage{
+  flex:1;min-height:0;overflow:auto;display:flex;padding:24px;background-color:var(--desk);
+  background-image:radial-gradient(var(--line) 1px,transparent 1px);background-size:18px 18px;
+}
+#winwrap{position:relative;margin:auto;flex:none}
+#win{position:absolute;left:0;top:0;transform-origin:0 0;box-shadow:0 14px 34px rgba(0,0,0,.28),0 0 0 1px rgba(128,128,128,.4);border-radius:8px}
+#chrome{border-radius:8px;overflow:hidden}
+#titlebar{height:32px;display:flex;align-items:center;justify-content:space-between;padding:0 12px;font:12px/1 'Roboto',system-ui,sans-serif;user-select:none}
+#titlebar .ctl{letter-spacing:.9em;font-size:11px;opacity:.7}
+#client{position:relative;overflow:hidden}
+#overlay{position:absolute;left:0;top:32px;pointer-events:none}
+.w{position:absolute;font-family:'Roboto',system-ui,sans-serif;line-height:1.15;user-select:none;touch-action:none;cursor:default;white-space:nowrap}
+.w.droptarget{outline:2px dashed var(--accent);outline-offset:-2px}
+.hint{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:30px;font:14px/1.5 var(--ui);opacity:.55;pointer-events:none}
+#status{padding:7px 12px;border-top:1px solid var(--line);font:12px var(--mono);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* code */
+.codebar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid var(--line)}
+#code{
+  flex:1;min-height:0;margin:0;padding:14px 16px;overflow:auto;font:12.5px/1.6 var(--mono);tab-size:4;white-space:pre;
+  background:var(--panel);color:var(--fg);
+}
+.k{color:var(--syn-kw)} .s{color:var(--syn-str)} .n{color:var(--syn-num)} .c{color:var(--syn-com);font-style:italic}
+.f{color:var(--syn-fn)} .t{color:var(--syn-cls)}
+.codefoot{padding:7px 12px;border-top:1px solid var(--line);font-size:12px;color:var(--muted)}
+.codefoot code{font-family:var(--mono);color:var(--fg)}
+
+/* inspector */
+.right section{padding:12px}
+.right .head{display:flex;align-items:center;gap:8px;padding:12px;border-bottom:1px solid var(--line)}
+.right .head h2{margin:0;color:var(--fg);font-size:14px;letter-spacing:0;text-transform:none;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.right .head small{color:var(--muted);font-size:11px;margin-left:auto;flex:none}
+.pg{padding:12px;border-bottom:1px solid var(--line)}
+.pgb{display:flex;flex-direction:column;gap:9px}
+.fld{display:flex;flex-direction:column;gap:3px;min-width:0}
+.fld>label{font-size:12px;color:var(--muted)}
+.fld.chk{flex-direction:row;align-items:center;gap:8px}
+.fld.chk input{width:16px;height:16px;accent-color:var(--accent);margin:0}
+.fld.chk label{color:var(--fg);font-size:13px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.colorf{display:flex;gap:6px;align-items:center}
+.actions{display:flex;flex-wrap:wrap;gap:6px;padding:12px}
+.note{font-size:12px;color:var(--muted);line-height:1.5}
+
+/* bottom nav (phones) */
+.bottom{display:none}
+#toast{
+  position:fixed;left:50%;bottom:max(18px,env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:80;
+  background:var(--fg);color:var(--bg);padding:8px 14px;border-radius:8px;font-size:13px;font-weight:500;
+  opacity:0;pointer-events:none;transition:opacity .15s;
+}
+#toast.on{opacity:1}
+
+/* modal */
+#modal{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(0,0,0,.45)}
+#modal .box{width:min(640px,100%);max-height:100%;display:flex;flex-direction:column;gap:10px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px}
+#modal h2{margin:0;font-size:16px}
+#modal textarea{height:300px;min-height:120px;font:12px/1.5 var(--mono);white-space:pre}
+#modal .row{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end}
+
+/* wide: code replaces design in the centre */
+#pane-code{display:none}
+#app[data-view=code] #pane-code{display:flex}
+#app[data-view=code] #pane-design{display:none}
+
+@media (max-width:1040px){
+  .work{grid-template-columns:216px minmax(0,1fr) 272px}
+}
+@media (max-width:820px){
+  .work{grid-template-columns:minmax(0,1fr)}
+  .left,.right,.center{display:none}
+  #app[data-view=add] .left{display:flex}
+  #app[data-view=edit] .right{display:flex}
+  #app[data-view=design] .center,#app[data-view=code] .center{display:flex}
+  .ctools .seg.views{display:none}
+  .bottom{
+    display:grid;grid-template-columns:repeat(4,1fr);gap:4px;padding:4px;border:1px solid var(--line);border-radius:10px;background:var(--panel);
+  }
+  .bottom button{height:36px;border:0;border-radius:7px;background:none;font-size:13px;font-weight:500;color:var(--muted)}
+  .bottom button[aria-current=true]{background:var(--accent);color:var(--accent-fg);font-weight:600}
+  #stage{padding:16px}
+  .brand span{display:none}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div id="app" data-view="design">
+  <header class="top">
+    <div class="brand">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="2.5" y="4" width="19" height="16" rx="3.5"/><path d="M2.5 9h19"/><circle cx="6" cy="6.5" r=".6" fill="currentColor"/><circle cx="8.6" cy="6.5" r=".6" fill="currentColor"/><path d="M7 13.5h4M7 16.5h8" stroke="var(--accent)" stroke-width="2"/></svg>
+      <span>Windowsmith</span>
+    </div>
+    <select id="tpl" aria-label="Start from a template">
+      <option value="">Start from…</option>
+      <option value="login">Login form</option>
+      <option value="prefs">Preferences panel</option>
+      <option value="blank">Blank window</option>
+    </select>
+    <button class="btn icon" id="undo" title="Undo (Ctrl+Z)" aria-label="Undo"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 5L3.5 9l4 4"/><path d="M4 9h8a4 4 0 010 8H9"/></svg></button>
+    <button class="btn icon" id="redo" title="Redo (Ctrl+Shift+Z)" aria-label="Redo"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12.5 5l4 4-4 4"/><path d="M16 9H8a4 4 0 000 8h3"/></svg></button>
+    <div class="spacer"></div>
+    <button class="btn" id="btn-data">Project data</button>
+    <button class="btn primary" id="btn-copy-top">Copy Python</button>
+  </header>
+
+  <main class="work">
+    <aside class="panel left" aria-label="Widgets and layers">
+      <section>
+        <h2>Widgets</h2>
+        <div id="palette"></div>
+      </section>
+      <section class="layers">
+        <h2>Layers</h2>
+        <div id="layers"></div>
+      </section>
+    </aside>
+
+    <section class="center" aria-label="Workspace">
+      <div class="ctools">
+        <div class="seg views" role="group" aria-label="Workspace view">
+          <button id="v-design" aria-pressed="true">Design</button>
+          <button id="v-code" aria-pressed="false">Python</button>
+        </div>
+        <div class="spacer"></div>
+        <label class="tool">Snap
+          <select id="snap" aria-label="Snap to grid">
+            <option value="1">Off</option><option value="5" selected>5 px</option><option value="10">10 px</option><option value="20">20 px</option>
+          </select>
+        </label>
+        <label class="tool">Zoom
+          <select id="zoom" aria-label="Zoom"><option value="fit" selected>Fit</option><option value="0.5">50%</option><option value="0.75">75%</option><option value="1">100%</option><option value="1.25">125%</option><option value="1.5">150%</option><option value="2">200%</option></select>
+        </label>
+        <button class="btn" id="btn-mode" title="Switch the preview between dark and light">Preview: dark</button>
+      </div>
+
+      <div id="pane-design">
+        <div id="stage">
+          <div id="winwrap">
+            <div id="win">
+              <div id="chrome">
+                <div id="titlebar"><span id="wtitle"></span><span class="ctl">—☐✕</span></div>
+                <div id="client"></div>
+              </div>
+              <div id="overlay"></div>
+            </div>
+          </div>
+        </div>
+        <div id="status"></div>
+      </div>
+
+      <div id="pane-code">
+        <div class="codebar">
+          <div class="seg" role="group" aria-label="Code style">
+            <button id="m-class" aria-pressed="true">Class</button>
+            <button id="m-script" aria-pressed="false">Script</button>
+          </div>
+          <div class="spacer"></div>
+          <button class="btn" id="btn-select">Select all</button>
+          <button class="btn primary" id="btn-copy">Copy Python</button>
+        </div>
+        <pre id="code" tabindex="0" aria-label="Generated CustomTkinter code"></pre>
+        <div class="codefoot">Save as <code>app.py</code>, run <code>pip install customtkinter</code>, then <code>python app.py</code>.</div>
+      </div>
+    </section>
+
+    <aside class="panel right" aria-label="Inspector">
+      <div class="head"><h2 id="props-title">Window</h2><small id="props-type"></small></div>
+      <div id="props"></div>
+    </aside>
+  </main>
+
+  <nav class="bottom" aria-label="Sections">
+    <button data-go="add">Add</button>
+    <button data-go="design" aria-current="true">Design</button>
+    <button data-go="edit">Edit</button>
+    <button data-go="code">Python</button>
+  </nav>
+</div>
+
+<div id="modal" hidden>
+  <div class="box" role="dialog" aria-modal="true" aria-labelledby="modal-h">
+    <h2 id="modal-h">Project data</h2>
+    <p class="note" style="margin:0">This is your whole layout as text. Copy it to keep a backup, or paste a saved one here and load it.</p>
+    <textarea id="data-text" spellcheck="false" aria-label="Project JSON"></textarea>
+    <div class="row">
+      <button class="btn" id="data-copy">Copy</button>
+      <button class="btn" id="data-load">Load into editor</button>
+      <button class="btn" id="data-close">Close</button>
+    </div>
+  </div>
+</div>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+/* ---------- helpers ---------- */
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+function mk(tag, css, text, cls) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (css) Object.assign(e.style, css);
+  if (text != null) e.textContent = text;
+  return e;
+}
+const num = (v, d) => (v === undefined || v === null || v === '' || isNaN(v)) ? d : Number(v);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const pv = (v, d) => (v ? v : d);
+const rad = (p, d) => num(p.corner_radius, d) + 'px';
+const listVals = s => String(s || '').split('\n').map(x => x.trim()).filter(Boolean);
+
+/* ---------- widget catalogue ---------- */
+const COL = (k, l) => ({ k, l, t: 'color' });
+const NUM = (k, l, o) => Object.assign({ k, l, t: 'num' }, o || {});
+const TXT = (k, l, o) => Object.assign({ k, l, t: 'text' }, o || {});
+const AREA = (k, l, o) => Object.assign({ k, l, t: 'area' }, o || {});
+const LIST = (k, l) => ({ k, l, t: 'list' });
+const BOOL = (k, l) => ({ k, l, t: 'bool' });
+const SEL = (k, l, opts) => ({ k, l, t: 'select', opts });
+const FS = NUM('font_size', 'Font size', { min: 6, max: 96, ph: '13' });
+const FW = SEL('font_weight', 'Font weight', [['', 'default'], ['normal', 'normal'], ['bold', 'bold']]);
+const BW = NUM('border_width', 'Border width', { min: 0, max: 30 });
+const CR = NUM('corner_radius', 'Corner radius', { min: 0, max: 200 });
+const DIS = BOOL('disabled', 'Disabled');
+const CMD = BOOL('command', 'Generate a handler function');
+
+const SPEC = {
+  CTkButton: { label: 'Button', base: 'button', w: 140, h: 28, props: { text: 'CTkButton', command: true },
+    groups: [['Content', [TXT('text', 'Text'), CMD, DIS]],
+             ['Style', [FS, FW, COL('fg_color', 'Fill'), COL('hover_color', 'Hover fill'), COL('text_color', 'Text color'), BW, COL('border_color', 'Border color'), CR]]] },
+  CTkLabel: { label: 'Label', base: 'label', w: 140, h: 28, props: { text: 'CTkLabel' },
+    groups: [['Content', [TXT('text', 'Text'), SEL('anchor', 'Text alignment', [['', 'center'], ['w', 'left'], ['e', 'right']])]],
+             ['Style', [FS, FW, COL('text_color', 'Text color'), COL('fg_color', 'Fill'), CR]]] },
+  CTkEntry: { label: 'Entry', base: 'entry', w: 140, h: 28, props: { placeholder_text: 'Type here' },
+    groups: [['Content', [TXT('placeholder_text', 'Placeholder'), TXT('value', 'Starting text'), TXT('show', 'Hide characters with', { ph: '*' }), DIS]],
+             ['Style', [FS, COL('fg_color', 'Fill'), COL('text_color', 'Text color'), COL('border_color', 'Border color'), BW, CR]]] },
+  CTkTextbox: { label: 'Textbox', base: 'textbox', w: 200, h: 120, props: { value: 'Notes go here…' },
+    groups: [['Content', [AREA('value', 'Starting text'), SEL('wrap', 'Wrap', [['', 'default'], ['word', 'word'], ['char', 'character'], ['none', 'none']]), DIS]],
+             ['Style', [FS, COL('fg_color', 'Fill'), COL('text_color', 'Text color'), BW, COL('border_color', 'Border color'), CR]]] },
+  CTkCheckBox: { label: 'Checkbox', base: 'checkbox', w: 130, h: 24, props: { text: 'CTkCheckBox' },
+    groups: [['Content', [TXT('text', 'Text'), BOOL('checked', 'Checked at start'), CMD, DIS]],
+             ['Style', [FS, COL('fg_color', 'Checked fill'), COL('hover_color', 'Hover fill'), COL('border_color', 'Border color'), COL('text_color', 'Text color'), BW, CR]]] },
+  CTkRadioButton: { label: 'Radio', base: 'radio', w: 140, h: 22, props: { text: 'CTkRadioButton', group: 'group_1' },
+    groups: [['Content', [TXT('text', 'Text'), TXT('group', 'Group'), BOOL('selected', 'Selected at start'), CMD, DIS]],
+             ['Style', [FS, COL('fg_color', 'Selected fill'), COL('hover_color', 'Hover fill'), COL('border_color', 'Border color'), COL('text_color', 'Text color')]]] },
+  CTkSwitch: { label: 'Switch', base: 'switch', w: 120, h: 24, props: { text: 'CTkSwitch' },
+    groups: [['Content', [TXT('text', 'Text'), BOOL('on', 'On at start'), CMD, DIS]],
+             ['Style', [FS, COL('fg_color', 'Track (off)'), COL('progress_color', 'Track (on)'), COL('button_color', 'Knob'), COL('text_color', 'Text color')]]] },
+  CTkSlider: { label: 'Slider', base: 'slider', w: 200, h: 16, props: { from_: 0, to: 1, value: 0.5 },
+    groups: [['Content', [NUM('from_', 'From', { step: 'any' }), NUM('to', 'To', { step: 'any' }), NUM('value', 'Start value', { step: 'any' }), NUM('steps', 'Number of steps', { min: 1, ph: 'continuous' }), CMD, DIS]],
+             ['Style', [COL('fg_color', 'Track'), COL('progress_color', 'Progress'), COL('button_color', 'Knob')]]] },
+  CTkProgressBar: { label: 'Progress', base: 'progressbar', w: 200, h: 10, props: { value: 0.5 },
+    groups: [['Content', [NUM('value', 'Value (0 to 1)', { min: 0, max: 1, step: 0.05 })]],
+             ['Style', [COL('fg_color', 'Track'), COL('progress_color', 'Progress')]]] },
+  CTkComboBox: { label: 'Combo', base: 'combobox', w: 140, h: 28, props: { values: 'Option 1\nOption 2\nOption 3', value: 'Option 1' },
+    groups: [['Content', [LIST('values', 'Values (one per line)'), TXT('value', 'Start value'), CMD, DIS]],
+             ['Style', [FS, COL('fg_color', 'Fill'), COL('border_color', 'Border color'), COL('button_color', 'Arrow button'), COL('text_color', 'Text color')]]] },
+  CTkOptionMenu: { label: 'Menu', base: 'optionmenu', w: 140, h: 28, props: { values: 'Option 1\nOption 2\nOption 3', value: 'Option 1' },
+    groups: [['Content', [LIST('values', 'Values (one per line)'), TXT('value', 'Start value'), CMD, DIS]],
+             ['Style', [FS, COL('fg_color', 'Fill'), COL('button_color', 'Arrow button'), COL('text_color', 'Text color')]]] },
+  CTkSegmentedButton: { label: 'Segments', base: 'segmented', w: 260, h: 28, props: { values: 'Tab 1\nTab 2\nTab 3', value: 'Tab 1' },
+    groups: [['Content', [LIST('values', 'Values (one per line)'), TXT('value', 'Start value'), CMD, DIS]],
+             ['Style', [FS, COL('fg_color', 'Background'), COL('selected_color', 'Selected'), COL('unselected_color', 'Unselected'), COL('text_color', 'Text color')]]] },
+  CTkFrame: { label: 'Frame', base: 'frame', w: 220, h: 160, props: {}, container: true,
+    groups: [['Style', [COL('fg_color', 'Fill'), BW, COL('border_color', 'Border color'), CR]]] },
+};
+
+const ICONS = {
+  CTkButton: '<rect x="2.5" y="6" width="15" height="8" rx="2.5"/><path d="M7 10h6"/>',
+  CTkLabel: '<path d="M5 5.5h10M10 5.5v9.5"/>',
+  CTkEntry: '<rect x="2.5" y="6" width="15" height="8" rx="1.5"/><path d="M6 8.5v3"/>',
+  CTkTextbox: '<rect x="2.5" y="3.5" width="15" height="13" rx="1.5"/><path d="M5.5 7h9M5.5 10h9M5.5 13h5"/>',
+  CTkCheckBox: '<rect x="3.5" y="3.5" width="13" height="13" rx="3"/><path d="M7 10l2.2 2.2L13.2 8"/>',
+  CTkRadioButton: '<circle cx="10" cy="10" r="7"/><circle cx="10" cy="10" r="3" fill="currentColor"/>',
+  CTkSwitch: '<rect x="2.5" y="6" width="15" height="8" rx="4"/><circle cx="13.5" cy="10" r="2.2" fill="currentColor"/>',
+  CTkSlider: '<path d="M2.5 10h15"/><circle cx="12" cy="10" r="2.6"/>',
+  CTkProgressBar: '<rect x="2.5" y="8" width="15" height="4" rx="2"/><path d="M4.5 10h6" stroke-width="2.4"/>',
+  CTkComboBox: '<rect x="2.5" y="6" width="15" height="8" rx="1.5"/><path d="M11.5 9.2l2 2 2-2"/>',
+  CTkOptionMenu: '<rect x="2.5" y="6" width="15" height="8" rx="2.5"/><path d="M6 10h4"/><path d="M12.5 9.2l1.5 1.5 1.5-1.5"/>',
+  CTkSegmentedButton: '<rect x="2.5" y="6" width="15" height="8" rx="2.5"/><path d="M8 6v8M13 6v8"/>',
+  CTkFrame: '<rect x="2.5" y="3.5" width="15" height="13" rx="2.5" stroke-dasharray="2.5 2"/>',
+};
+const icon = t => '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (ICONS[t] || '') + '</svg>';
+
+/* ---------- CustomTkinter default colours (index 0 light, 1 dark) ---------- */
+const THEMES = {
+  'blue':      { fg: ['#3B8ED0', '#1F6AA5'], hover: ['#36719F', '#144870'] },
+  'green':     { fg: ['#2CC985', '#2FA572'], hover: ['#0C955A', '#106A43'] },
+  'dark-blue': { fg: ['#3a7ebf', '#1f538d'], hover: ['#325882', '#14375e'] },
+};
+const BASE = {
+  win: ['#ebebeb', '#242424'], frame: ['#dbdbdb', '#2b2b2b'], frameTop: ['#cfcfcf', '#333333'],
+  text: ['#1a1a1a', '#DCE4EE'], btnText: ['#DCE4EE', '#DCE4EE'],
+  entry: ['#F9F9FA', '#343638'], entryBorder: ['#979DA2', '#565B5E'], placeholder: ['#858585', '#9e9e9e'],
+  track: ['#939BA2', '#4A4D50'], cbBorder: ['#3E454A', '#949A9F'], sliderProg: ['#666666', '#AAB0B5'],
+  switchBtn: ['#5c5c5c', '#D5D9DE'], segBg: ['#979DA2', '#4a4a4a'], segUn: ['#979DA2', '#6b6b6b'], comboBtn: ['#979DA2', '#565B5E'],
+};
+function colors() {
+  const ap = state.project.appearance;
+  const dark = ap === 'dark' || (ap === 'system' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+  const m = dark ? 1 : 0;
+  const th = THEMES[state.project.theme] || THEMES.blue;
+  const C = { m, dark, accent: th.fg[m], accentHover: th.hover[m], titleBg: dark ? '#2b2b2b' : '#f0f0f0', titleFg: dark ? '#cfd3d8' : '#333333' };
+  for (const k in BASE) C[k] = BASE[k][m];
+  return C;
+}
+
+/* ---------- state ---------- */
+const LS_KEY = 'windowsmith.project.v1';
+const TB = 32, MIN = 8;
+let state = { project: defaultProject(), items: [], selected: null };
+let history = [], hIndex = -1;
+let nextId = 1;
+let zoomMode = 'fit', zoom = 1, snap = 5;
+let view = 'design';
+let suppressClick = false;
+
+function defaultProject() {
+  return { title: 'My App', width: 480, height: 360, appearance: 'dark', theme: 'blue', resizable: false, mode: 'class' };
+}
+const byId = id => state.items.find(i => i.id === id);
+const selItem = () => (state.selected ? byId(state.selected) : null);
+const kids = pid => state.items.filter(i => (i.parent || null) === (pid || null));
+function newId() { return 'w' + (nextId++); }
+function descendants(id) {
+  const out = new Set();
+  (function walk(p) { for (const c of kids(p)) { out.add(c.id); walk(c.id); } })(id);
+  return out;
+}
+function absPos(it) {
+  let x = it.x, y = it.y, pid = it.parent;
+  while (pid) { const pa = byId(pid); if (!pa) break; x += pa.x; y += pa.y; pid = pa.parent; }
+  return { x, y };
+}
+function depthOf(it) { let d = 0, pid = it.parent; while (pid) { d++; const pa = byId(pid); pid = pa ? pa.parent : null; } return d; }
+
+const PYKW = new Set(['False', 'None', 'True', 'and', 'as', 'assert', 'async', 'await', 'break', 'class', 'continue', 'def', 'del', 'elif', 'else', 'except', 'finally', 'for', 'from', 'global', 'if', 'import', 'in', 'is', 'lambda', 'nonlocal', 'not', 'or', 'pass', 'raise', 'return', 'try', 'while', 'with', 'yield', 'self', 'app', 'ctk', 'print']);
+const RESERVED = new Set(['title', 'geometry', 'resizable', 'destroy', 'mainloop', 'config', 'configure', 'focus', 'grid', 'pack', 'place', 'master', 'children', 'tk', 'after', 'bind', 'update', 'quit', 'state', 'size', 'name']);
+function ident(s) {
+  let r = String(s || '').replace(/[^A-Za-z0-9_]/g, '_');
+  if (!r) r = 'widget';
+  if (/^[0-9]/.test(r)) r = '_' + r;
+  if (PYKW.has(r) || RESERVED.has(r)) r += '_';
+  return r;
+}
+function uniqueName(base, exceptId) {
+  base = ident(base);
+  const used = new Set(state.items.filter(i => i.id !== exceptId).map(i => i.name));
+  if (!used.has(base)) return base;
+  let n = 2;
+  while (used.has(base + '_' + n)) n++;
+  return base + '_' + n;
+}
+function nextName(type) {
+  const base = SPEC[type].base;
+  let n = 1;
+  const used = new Set(state.items.map(i => i.name));
+  while (used.has(base + '_' + n)) n++;
+  return base + '_' + n;
+}
+
+/* ---------- history & persistence ---------- */
+function snapshot() { return JSON.stringify({ project: state.project, items: state.items }); }
+function commit() {
+  const s = snapshot();
+  if (s === history[hIndex]) return;
+  history = history.slice(0, hIndex + 1);
+  history.push(s);
+  hIndex = history.length - 1;
+  if (history.length > 120) { history.shift(); hIndex--; }
+  persist();
+  updateUndo();
+}
+function persist() { try { localStorage.setItem(LS_KEY, snapshot()); } catch (e) { /* storage may be unavailable */ } }
+function restore(s) {
+  const o = JSON.parse(s);
+  state.project = o.project; state.items = o.items;
+  if (state.selected && !byId(state.selected)) state.selected = null;
+  refreshAll();
+  persist();
+  updateUndo();
+}
+function undo() { if (hIndex > 0) { hIndex--; restore(history[hIndex]); } }
+function redo() { if (hIndex < history.length - 1) { hIndex++; restore(history[hIndex]); } }
+function updateUndo() { $('#undo').disabled = hIndex <= 0; $('#redo').disabled = hIndex >= history.length - 1; }
+
+function normalize(o) {
+  if (!o || typeof o !== 'object' || !Array.isArray(o.items)) throw new Error('That does not look like a Windowsmith project.');
+  const project = Object.assign(defaultProject(), o.project || {});
+  project.width = clamp(num(project.width, 480), 120, 2000);
+  project.height = clamp(num(project.height, 360), 80, 2000);
+  if (!THEMES[project.theme]) project.theme = 'blue';
+  if (!['dark', 'light', 'system'].includes(project.appearance)) project.appearance = 'dark';
+  if (!['class', 'script'].includes(project.mode)) project.mode = 'class';
+  project.title = String(project.title == null ? 'My App' : project.title);
+  project.resizable = !!project.resizable;
+  const items = [];
+  const ids = new Set();
+  for (const r of o.items) {
+    if (!r || !SPEC[r.type]) continue;
+    const id = (typeof r.id === 'string' && !ids.has(r.id)) ? r.id : ('w' + (nextId++));
+    ids.add(id);
+    items.push({ id, type: r.type, name: String(r.name || ''), parent: r.parent || null,
+      x: num(r.x, 0), y: num(r.y, 0), w: Math.max(MIN, num(r.w, SPEC[r.type].w)), h: Math.max(MIN, num(r.h, SPEC[r.type].h)),
+      props: Object.assign({}, r.props || {}) });
+  }
+  for (const it of items) {
+    if (it.parent && !items.some(p => p.id === it.parent && p.type === 'CTkFrame')) it.parent = null;
+    if (it.parent === it.id) it.parent = null;
+  }
+  const seen = new Set();
+  for (const it of items) {
+    let n = ident(it.name || SPEC[it.type].base);
+    let k = 2; const b = n;
+    while (seen.has(n)) n = b + '_' + k++;
+    seen.add(n); it.name = n;
+  }
+  let max = 0;
+  for (const it of items) { const m = /^w(\d+)$/.exec(it.id); if (m) max = Math.max(max, +m[1]); }
+  nextId = Math.max(nextId, max + 1);
+  return { project, items };
+}
+
+/* ---------- templates ---------- */
+function makeTemplate(kind) {
+  const items = [];
+  const add = (type, name, parent, x, y, w, h, props) => {
+    const it = { id: newId(), type, name, parent, x, y, w, h, props: Object.assign({}, SPEC[type].props, props || {}) };
+    items.push(it); return it.id;
+  };
+  const project = defaultProject();
+  if (kind === 'login') {
+    project.title = 'Sign in';
+    project.width = 480; project.height = 360;
+    const f = add('CTkFrame', 'login_card', null, 40, 28, 400, 304, { corner_radius: 14 });
+    add('CTkLabel', 'title_label', f, 30, 22, 340, 34, { text: 'Welcome back', font_size: 24, font_weight: 'bold', anchor: 'w' });
+    add('CTkLabel', 'hint_label', f, 30, 58, 340, 22, { text: 'Sign in to continue', text_color: '#8a94a0', anchor: 'w' });
+    add('CTkEntry', 'username_entry', f, 30, 94, 340, 38, { placeholder_text: 'Username' });
+    add('CTkEntry', 'password_entry', f, 30, 142, 340, 38, { placeholder_text: 'Password', show: '*' });
+    add('CTkCheckBox', 'remember_check', f, 30, 194, 200, 24, { text: 'Remember me', checked: true });
+    add('CTkButton', 'login_button', f, 30, 230, 340, 40, { text: 'Log in', font_size: 14, font_weight: 'bold' });
+    add('CTkButton', 'forgot_button', f, 30, 276, 340, 22, { text: 'Forgot password?', fg_color: 'transparent', hover_color: '#2b2b2b', text_color: '#3B8ED0', font_size: 12 });
+  } else if (kind === 'prefs') {
+    project.title = 'Preferences';
+    project.width = 560; project.height = 420;
+    add('CTkLabel', 'heading_label', null, 24, 18, 300, 30, { text: 'Preferences', font_size: 20, font_weight: 'bold', anchor: 'w' });
+    const f = add('CTkFrame', 'general_frame', null, 24, 62, 512, 196, {});
+    add('CTkLabel', 'dark_label', f, 20, 20, 150, 28, { text: 'Dark mode', anchor: 'w' });
+    add('CTkSwitch', 'dark_switch', f, 440, 22, 50, 24, { text: '', on: true });
+    add('CTkLabel', 'language_label', f, 20, 62, 150, 28, { text: 'Language', anchor: 'w' });
+    add('CTkOptionMenu', 'language_menu', f, 330, 62, 160, 28, { values: 'English\nDeutsch\nFrançais\nEspañol', value: 'English', command: false });
+    add('CTkLabel', 'volume_label', f, 20, 108, 150, 28, { text: 'Volume', anchor: 'w' });
+    add('CTkSlider', 'volume_slider', f, 170, 114, 320, 16, { value: 0.6 });
+    add('CTkLabel', 'quality_label', f, 20, 148, 150, 28, { text: 'Quality', anchor: 'w' });
+    add('CTkSegmentedButton', 'quality_segments', f, 170, 148, 320, 28, { values: 'Low\nMedium\nHigh', value: 'Medium' });
+    add('CTkLabel', 'storage_label', null, 24, 278, 300, 24, { text: 'Storage used', anchor: 'w' });
+    add('CTkProgressBar', 'storage_bar', null, 24, 308, 512, 10, { value: 0.42 });
+    add('CTkLabel', 'storage_hint', null, 24, 322, 300, 22, { text: '4.2 GB of 10 GB', font_size: 12, text_color: '#8a94a0', anchor: 'w' });
+    add('CTkButton', 'reset_button', null, 340, 370, 90, 32, { text: 'Reset', fg_color: 'transparent', border_width: 2, text_color: '#DCE4EE' });
+    add('CTkButton', 'save_button', null, 446, 370, 90, 32, { text: 'Save' });
+  } else {
+    project.title = 'My App';
+  }
+  return { project, items };
+}
+function loadProject(o, keepSel) {
+  state.project = o.project; state.items = o.items;
+  if (!keepSel) state.selected = null;
+  refreshAll();
+  commit();
+}
+
+/* ---------- canvas rendering ---------- */
+const CHECK_SVG = '<svg viewBox="0 0 24 24" width="100%" height="100%" aria-hidden="true"><path d="M6 12.5l4 4 8-9" fill="none" stroke="#DCE4EE" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+function txt(s) { return mk('span', { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }, s == null ? '' : s); }
+function inset(w, c) { return w ? 'inset 0 0 0 ' + w + 'px ' + c : 'none'; }
+
+const RENDER = {
+  CTkButton(it, r, C, p) {
+    const bw = num(p.border_width, 0);
+    Object.assign(r.style, { background: pv(p.fg_color, C.accent), color: pv(p.text_color, C.btnText), borderRadius: rad(p, 6),
+      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 8px', boxShadow: inset(bw, pv(p.border_color, C.cbBorder)) });
+    r.appendChild(txt(p.text));
+  },
+  CTkLabel(it, r, C, p) {
+    Object.assign(r.style, { background: pv(p.fg_color, 'transparent'), color: pv(p.text_color, C.text), borderRadius: rad(p, 0),
+      display: 'flex', alignItems: 'center', padding: '0 4px',
+      justifyContent: p.anchor === 'w' ? 'flex-start' : p.anchor === 'e' ? 'flex-end' : 'center' });
+    r.appendChild(txt(p.text));
+  },
+  CTkEntry(it, r, C, p) {
+    const bw = num(p.border_width, 2);
+    Object.assign(r.style, { background: pv(p.fg_color, C.entry), borderRadius: rad(p, 6), boxShadow: inset(bw, pv(p.border_color, C.entryBorder)),
+      display: 'flex', alignItems: 'center', padding: '0 10px' });
+    const has = !!p.value;
+    const shown = has ? (p.show ? String(p.show)[0].repeat(Array.from(p.value).length) : p.value) : (p.placeholder_text || '');
+    const s = txt(shown);
+    s.style.color = has ? pv(p.text_color, C.text) : C.placeholder;
+    r.appendChild(s);
+  },
+  CTkTextbox(it, r, C, p) {
+    const bw = num(p.border_width, 0);
+    Object.assign(r.style, { background: pv(p.fg_color, C.entry), borderRadius: rad(p, 6), boxShadow: inset(bw, pv(p.border_color, C.entryBorder)),
+      padding: '8px 10px', overflow: 'hidden', whiteSpace: 'pre-wrap', color: pv(p.text_color, C.text) });
+    r.textContent = p.value || '';
+  },
+  CTkCheckBox(it, r, C, p) {
+    Object.assign(r.style, { display: 'flex', alignItems: 'center', gap: '6px', color: pv(p.text_color, C.text) });
+    const bw = num(p.border_width, 3);
+    const box = mk('div', { flex: 'none', width: '24px', height: '24px', borderRadius: rad(p, 6) });
+    if (p.checked) { box.style.background = pv(p.fg_color, C.accent); box.innerHTML = CHECK_SVG; }
+    else box.style.boxShadow = inset(bw, pv(p.border_color, C.cbBorder));
+    r.append(box, txt(p.text));
+  },
+  CTkRadioButton(it, r, C, p) {
+    Object.assign(r.style, { display: 'flex', alignItems: 'center', gap: '6px', color: pv(p.text_color, C.text) });
+    const dot = mk('div', { flex: 'none', width: '22px', height: '22px', borderRadius: '50%' });
+    dot.style.boxShadow = p.selected ? inset(6, pv(p.fg_color, C.accent)) : inset(3, pv(p.border_color, C.cbBorder));
+    r.append(dot, txt(p.text));
+  },
+  CTkSwitch(it, r, C, p) {
+    Object.assign(r.style, { display: 'flex', alignItems: 'center', gap: '8px', color: pv(p.text_color, C.text) });
+    const track = mk('div', { flex: 'none', position: 'relative', width: '36px', height: '18px', borderRadius: '9px',
+      background: p.on ? pv(p.progress_color, C.accent) : pv(p.fg_color, C.track) });
+    track.appendChild(mk('div', { position: 'absolute', top: '2px', left: p.on ? '20px' : '2px', width: '14px', height: '14px', borderRadius: '50%', background: pv(p.button_color, C.switchBtn) }));
+    r.append(track, txt(p.text));
+  },
+  CTkSlider(it, r, C, p) {
+    const lo = num(p.from_, 0), hi = num(p.to, 1);
+    const f = hi === lo ? 0 : clamp((num(p.value, 0.5) - lo) / (hi - lo), 0, 1);
+    const d = it.h, th = Math.min(8, it.h);
+    const top = (it.h - th) / 2;
+    r.appendChild(mk('div', { position: 'absolute', left: 0, right: 0, top: top + 'px', height: th + 'px', borderRadius: '99px', background: pv(p.fg_color, C.track) }));
+    r.appendChild(mk('div', { position: 'absolute', left: 0, top: top + 'px', height: th + 'px', width: (f * (it.w - d) + d / 2) + 'px', borderRadius: '99px', background: pv(p.progress_color, C.sliderProg) }));
+    r.appendChild(mk('div', { position: 'absolute', top: 0, left: (f * (it.w - d)) + 'px', width: d + 'px', height: d + 'px', borderRadius: '50%', background: pv(p.button_color, C.accent) }));
+  },
+  CTkProgressBar(it, r, C, p) {
+    Object.assign(r.style, { background: pv(p.fg_color, C.track), borderRadius: '99px', overflow: 'hidden' });
+    r.appendChild(mk('div', { height: '100%', width: (clamp(num(p.value, 0.5), 0, 1) * 100) + '%', borderRadius: '99px', background: pv(p.progress_color, C.accent) }));
+  },
+  CTkComboBox(it, r, C, p) {
+    Object.assign(r.style, { background: pv(p.fg_color, C.entry), borderRadius: '6px', boxShadow: inset(2, pv(p.border_color, C.entryBorder)), display: 'flex', alignItems: 'center' });
+    const t = txt(p.value || ''); t.style.padding = '0 10px'; t.style.color = pv(p.text_color, C.text); t.style.flex = '1';
+    const b = mk('div', { margin: '2px', width: '20px', alignSelf: 'stretch', borderRadius: '0 4px 4px 0', background: pv(p.button_color, C.comboBtn), display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#DCE4EE', fontSize: '9px' }, '▼');
+    b.style.flex = 'none';
+    r.append(t, b);
+  },
+  CTkOptionMenu(it, r, C, p) {
+    Object.assign(r.style, { background: pv(p.fg_color, C.accent), borderRadius: '6px', display: 'flex', alignItems: 'center', overflow: 'hidden' });
+    const t = txt(p.value || ''); t.style.padding = '0 10px'; t.style.color = pv(p.text_color, C.btnText); t.style.flex = '1';
+    const b = mk('div', { width: '24px', alignSelf: 'stretch', background: pv(p.button_color, C.accentHover), display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#DCE4EE', fontSize: '9px' }, '▼');
+    b.style.flex = 'none';
+    r.append(t, b);
+  },
+  CTkSegmentedButton(it, r, C, p) {
+    Object.assign(r.style, { background: pv(p.fg_color, C.segBg), borderRadius: '6px', padding: '3px', display: 'flex' });
+    const vals = listVals(p.values);
+    vals.forEach(v => {
+      const on = v === p.value;
+      const s = mk('div', { flex: '1', minWidth: '0', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '4px',
+        background: on ? pv(p.selected_color, C.accent) : pv(p.unselected_color, C.segUn), color: pv(p.text_color, C.btnText) });
+      s.appendChild(txt(v)); r.appendChild(s);
+    });
+  },
+  CTkFrame(it, r, C, p, depth) {
+    const bw = num(p.border_width, 0);
+    Object.assign(r.style, { background: pv(p.fg_color, depth % 2 === 0 ? C.frame : C.frameTop), borderRadius: rad(p, 6), overflow: 'hidden',
+      boxShadow: inset(bw, pv(p.border_color, C.entryBorder)) });
+  },
+};
+
+function makeWidgetEl(it, C, depth) {
+  const p = it.props;
+  const r = mk('div', { left: it.x + 'px', top: it.y + 'px', width: it.w + 'px', height: it.h + 'px' }, null, 'w');
+  r.dataset.id = it.id; r.dataset.type = it.type;
+  r.style.fontSize = num(p.font_size, 13) + 'px';
+  r.style.fontWeight = p.font_weight === 'bold' ? '700' : '400';
+  if (p.disabled) r.style.opacity = '.55';
+  RENDER[it.type](it, r, C, p, depth);
+  return r;
+}
+
+function renderClient() {
+  const P = state.project, C = colors();
+  const client = $('#client');
+  client.textContent = '';
+  client.style.width = P.width + 'px';
+  client.style.height = P.height + 'px';
+  client.style.background = C.win;
+  client.style.backgroundImage = snap >= 5 ? 'radial-gradient(rgba(128,128,128,.28) 1px, transparent 1px)' : 'none';
+  client.style.backgroundSize = snap >= 5 ? (snap * (snap < 10 ? 2 : 1)) + 'px ' + (snap * (snap < 10 ? 2 : 1)) + 'px' : 'auto';
+  const tb = $('#titlebar');
+  tb.style.background = C.titleBg; tb.style.color = C.titleFg;
+  $('#wtitle').textContent = P.title;
+  $('#win').style.width = P.width + 'px';
+  $('#win').style.height = (P.height + TB) + 'px';
+  $('#overlay').style.width = P.width + 'px';
+  $('#overlay').style.height = P.height + 'px';
+  $('#btn-mode').textContent = 'Preview: ' + (C.dark ? 'dark' : 'light');
+  (function build(pid, parentEl, depth) {
+    for (const it of kids(pid)) {
+      const el = makeWidgetEl(it, C, depth);
+      parentEl.appendChild(el);
+      if (it.type === 'CTkFrame') build(it.id, el, depth + 1);
+    }
+  })(null, client, 0);
+  if (!state.items.length) {
+    const hint = mk('div', { color: C.text }, null, 'hint');
+    hint.textContent = 'Empty window. Click a widget in the list, or drag one here.';
+    client.appendChild(hint);
+  }
+  applyZoom();
+  renderOverlay();
+}
+
+const HANDLES = [['nw', 0, 0, 'nwse-resize'], ['n', 50, 0, 'ns-resize'], ['ne', 100, 0, 'nesw-resize'], ['e', 100, 50, 'ew-resize'],
+  ['se', 100, 100, 'nwse-resize'], ['s', 50, 100, 'ns-resize'], ['sw', 0, 100, 'nesw-resize'], ['w', 0, 50, 'ew-resize']];
+function renderOverlay() {
+  const ov = $('#overlay');
+  ov.textContent = '';
+  const it = selItem();
+  if (!it) return;
+  const a = absPos(it);
+  const box = mk('div', { position: 'absolute', left: a.x + 'px', top: a.y + 'px', width: it.w + 'px', height: it.h + 'px',
+    boxShadow: '0 0 0 ' + (1.5 / zoom) + 'px var(--accent)', pointerEvents: 'none' });
+  const hs = 9 / zoom;
+  for (const [d, px, py, cur] of HANDLES) {
+    const h = mk('div', { position: 'absolute', left: px + '%', top: py + '%', width: hs + 'px', height: hs + 'px', transform: 'translate(-50%,-50%)',
+      background: '#fff', borderRadius: (2 / zoom) + 'px', boxShadow: '0 0 0 ' + (1.5 / zoom) + 'px var(--accent)', cursor: cur, pointerEvents: 'auto', touchAction: 'none' });
+    h.dataset.handle = d;
+    box.appendChild(h);
+  }
+  ov.appendChild(box);
+}
+
+function applyZoom() {
+  const st = $('#stage');
+  const W = state.project.width, H = state.project.height + TB;
+  let z;
+  if (zoomMode === 'fit') {
+    if (!st.clientWidth) return;
+    z = Math.min((st.clientWidth - 48) / W, (st.clientHeight - 48) / H, 1.25);
+  } else z = zoomMode;
+  z = clamp(z, 0.2, 3);
+  zoom = z;
+  $('#win').style.transform = 'scale(' + z + ')';
+  $('#winwrap').style.width = (W * z) + 'px';
+  $('#winwrap').style.height = (H * z) + 'px';
+  const opt = $('#zoom').querySelector('option[value="fit"]');
+  opt.textContent = zoomMode === 'fit' ? 'Fit (' + Math.round(z * 100) + '%)' : 'Fit';
+}
+
+/* ---------- layers ---------- */
+function renderLayers() {
+  const box = $('#layers');
+  box.textContent = '';
+  const mkRow = (id, ic, name, type, depth) => {
+    const b = mk('button', null, null, 'lrow');
+    b.type = 'button';
+    b.dataset.id = id || '';
+    b.style.paddingLeft = (8 + depth * 14) + 'px';
+    if ((state.selected || '') === (id || '')) b.setAttribute('aria-current', 'true');
+    b.insertAdjacentHTML('afterbegin', ic);
+    b.appendChild(mk('span', null, name, 'nm'));
+    b.appendChild(mk('span', null, type, 'ty'));
+    b.addEventListener('click', () => select(id));
+    box.appendChild(b);
+  };
+  mkRow(null, '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="2.5" y="3.5" width="15" height="13" rx="2.5"/><path d="M2.5 7h15"/></svg>', 'Window', state.project.width + '×' + state.project.height, 0);
+  (function walk(pid, depth) {
+    for (const it of kids(pid).slice().reverse()) {
+      mkRow(it.id, icon(it.type), it.name, SPEC[it.type].label, depth);
+      if (it.type === 'CTkFrame') walk(it.id, depth + 1);
+    }
+  })(null, 1);
+  if (!state.items.length) box.appendChild(mk('div', null, 'Nothing here yet.', 'empty'));
+}
+
+function updateStatus() {
+  const it = selItem();
+  $('#status').textContent = it
+    ? it.name + '  ·  ' + SPEC[it.type].label + '  ·  x ' + it.x + '  y ' + it.y + '  ·  ' + it.w + ' × ' + it.h
+    : 'Window  ·  ' + state.project.width + ' × ' + state.project.height + '  ·  ' + state.items.length + ' widget' + (state.items.length === 1 ? '' : 's');
+}
+
+/* ---------- inspector ---------- */
+function setProp(it, f, v) {
+  const p = it.props;
+  if (f.t === 'bool') p[f.k] = !!v;
+  else if (f.t === 'text' || f.t === 'area' || f.t === 'list') p[f.k] = v;
+  else if (f.t === 'num') { if (v === '' || v === undefined || isNaN(v)) delete p[f.k]; else p[f.k] = Number(v); }
+  else { if (v === '' || v === undefined) delete p[f.k]; else p[f.k] = v; }
+}
+const HEX = /^(#([0-9a-f]{3}|[0-9a-f]{6})|transparent)$/i;
+function expandHex(h) { return /^#[0-9a-f]{3}$/i.test(h) ? '#' + h[1] + h[1] + h[2] + h[2] + h[3] + h[3] : h; }
+
+function control(f, cur, onSet, onDone, ctxId) {
+  const id = 'p-' + (ctxId || '') + f.k;
+  const wrap = mk('div', null, null, 'fld');
+  const label = (t) => { const l = mk('label', null, t); l.htmlFor = id; return l; };
+  if (f.t === 'bool') {
+    wrap.classList.add('chk');
+    const i = mk('input'); i.type = 'checkbox'; i.id = id; i.checked = !!cur;
+    i.addEventListener('change', () => { onSet(i.checked); onDone(); });
+    wrap.append(i, label(f.l));
+    return wrap;
+  }
+  wrap.appendChild(label(f.l));
+  if (f.t === 'color') {
+    const row = mk('div', null, null, 'colorf');
+    const sw = mk('input'); sw.type = 'color'; sw.id = id + '-sw'; sw.setAttribute('aria-label', f.l + ' picker');
+    const t = mk('input'); t.type = 'text'; t.id = id; t.placeholder = 'default'; t.value = cur || ''; t.spellcheck = false;
+    sw.value = HEX.test(cur || '') && cur !== 'transparent' ? expandHex(cur) : '#888888';
+    const x = mk('button', null, '×', 'btn mini'); x.type = 'button'; x.title = 'Back to the default'; x.setAttribute('aria-label', 'Reset ' + f.l);
+    sw.addEventListener('input', () => { t.value = sw.value; t.classList.remove('bad'); onSet(sw.value); });
+    sw.addEventListener('change', onDone);
+    t.addEventListener('input', () => {
+      const v = t.value.trim();
+      if (v === '') { t.classList.remove('bad'); onSet(''); }
+      else if (HEX.test(v)) { t.classList.remove('bad'); onSet(v); if (v !== 'transparent') sw.value = expandHex(v); }
+      else t.classList.add('bad');
+    });
+    t.addEventListener('change', onDone);
+    x.addEventListener('click', () => { t.value = ''; t.classList.remove('bad'); onSet(''); onDone(); });
+    row.append(sw, t, x);
+    wrap.appendChild(row);
+    return wrap;
+  }
+  let el;
+  if (f.t === 'select') {
+    el = mk('select');
+    for (const [v, l] of f.opts) { const o = mk('option', null, l); o.value = v; el.appendChild(o); }
+    el.value = cur || '';
+    el.addEventListener('change', () => { onSet(el.value); onDone(); });
+  } else if (f.t === 'area' || f.t === 'list') {
+    el = mk('textarea'); el.rows = f.t === 'list' ? 4 : 3; el.value = cur || ''; el.spellcheck = false;
+    el.addEventListener('input', () => onSet(el.value));
+    el.addEventListener('change', onDone);
+  } else {
+    el = mk('input'); el.type = f.t === 'num' ? 'number' : 'text';
+    if (f.t === 'num') { if (f.min !== undefined) el.min = f.min; if (f.max !== undefined) el.max = f.max; el.step = f.step || 1; }
+    if (f.ph) el.placeholder = f.ph;
+    el.value = cur === undefined || cur === null ? '' : cur;
+    if (f.t === 'text') el.spellcheck = false;
+    el.addEventListener('input', () => onSet(f.t === 'num' ? (el.value === '' ? '' : Number(el.value)) : el.value));
+    el.addEventListener('change', onDone);
+  }
+  el.id = id;
+  wrap.appendChild(el);
+  return wrap;
+}
+
+function group(title) {
+  const s = mk('section', null, null, 'pg');
+  s.appendChild(mk('h3', null, title));
+  const b = mk('div', null, null, 'pgb');
+  s.appendChild(b);
+  return { s, b };
+}
+
+function renderProps() {
+  const box = $('#props');
+  box.textContent = '';
+  const it = selItem();
+  const live = () => { renderClient(); scheduleCode(); updateStatus(); };
+  if (!it) {
+    $('#props-title').textContent = 'Window';
+    $('#props-type').textContent = 'CTk';
+    const P = state.project;
+    const g1 = group('Window');
+    const setP = (k, post) => v => { P[k] = v; if (post) post(); live(); renderLayers(); };
+    g1.b.appendChild(control(TXT('title', 'Title'), P.title, setP('title'), commit, 'win-'));
+    const two = mk('div', null, null, 'two');
+    two.append(control(NUM('width', 'Width', { min: 120, max: 2000 }), P.width, v => { P.width = clamp(num(v, 480), 120, 2000); live(); renderLayers(); }, commit, 'win-'),
+      control(NUM('height', 'Height', { min: 80, max: 2000 }), P.height, v => { P.height = clamp(num(v, 360), 80, 2000); live(); renderLayers(); }, commit, 'win-'));
+    g1.b.appendChild(two);
+    g1.b.appendChild(control(BOOL('resizable', 'User can resize the window'), P.resizable, v => { P.resizable = v; live(); }, commit, 'win-'));
+    box.appendChild(g1.s);
+    const g2 = group('Look');
+    g2.b.appendChild(control(SEL('appearance', 'Appearance mode', [['dark', 'dark'], ['light', 'light'], ['system', 'follow the system']]), P.appearance, v => { P.appearance = v; live(); }, commit, 'win-'));
+    g2.b.appendChild(control(SEL('theme', 'Color theme', [['blue', 'blue'], ['green', 'green'], ['dark-blue', 'dark-blue']]), P.theme, v => { P.theme = v; live(); }, commit, 'win-'));
+    box.appendChild(g2.s);
+    const n = mk('section', null, null, 'pg');
+    n.appendChild(mk('p', null, 'Click a widget in the list or on the window to edit it. Drag a widget onto a frame to put it inside the frame. Arrow keys nudge the selection, Shift+arrows move by 10.', 'note'));
+    box.appendChild(n);
+    return;
+  }
+  const spec = SPEC[it.type];
+  $('#props-title').textContent = it.name;
+  $('#props-type').textContent = spec.label;
+  const gl = group('Layout');
+  const nameCtl = control(TXT('name', 'Python name'), it.name, v => { it.name = ident(v) || it.name; scheduleCode(); renderLayers(); updateStatus(); }, () => {
+    const fixed = uniqueName(it.name, it.id); it.name = fixed;
+    const inp = $('#p-name'); if (inp) inp.value = fixed;
+    $('#props-title').textContent = it.name;
+    renderLayers(); scheduleCode(); updateStatus(); commit();
+  });
+  gl.b.appendChild(nameCtl);
+  const geo = (k, l, min) => control(NUM(k, l, { min }), it[k], v => {
+    if (v === '') return;
+    it[k] = Math.round(k === 'w' || k === 'h' ? Math.max(MIN, v) : v);
+    live();
+  }, () => { refreshGeom(); commit(); }, 'g-');
+  const r1 = mk('div', null, null, 'two'); r1.append(geo('x', 'X'), geo('y', 'Y'));
+  const r2 = mk('div', null, null, 'two'); r2.append(geo('w', 'Width', MIN), geo('h', 'Height', MIN));
+  gl.b.append(r1, r2);
+  box.appendChild(gl.s);
+  for (const [title, fields] of spec.groups) {
+    const g = group(title);
+    for (const f of fields) {
+      g.b.appendChild(control(f, it.props[f.k], v => { setProp(it, f, v); live(); if (f.k === 'group') scheduleCode(); }, commit));
+    }
+    box.appendChild(g.s);
+  }
+  const act = mk('div', null, null, 'actions');
+  const ab = (t, fn, cls) => { const b = mk('button', null, t, 'btn ' + (cls || '')); b.type = 'button'; b.addEventListener('click', fn); act.appendChild(b); };
+  ab('Duplicate', () => duplicateSel());
+  ab('Bring forward', () => moveZ(1));
+  ab('Send back', () => moveZ(-1));
+  ab('Delete', () => deleteSel(), 'danger');
+  box.appendChild(act);
+}
+function refreshGeom() {
+  const it = selItem(); if (!it) return;
+  for (const k of ['x', 'y', 'w', 'h']) { const el = $('#p-g-' + k); if (el && document.activeElement !== el) el.value = it[k]; }
+}
+
+/* ---------- selection & editing ---------- */
+function select(id) {
+  id = id || null;
+  if (state.selected === id) { return; }
+  state.selected = id;
+  renderLayers(); renderOverlay(); renderProps(); updateStatus();
+}
+function refreshAll() {
+  $('#snap').value = String(snap);
+  renderClient(); renderLayers(); renderProps(); updateStatus(); renderCode();
+  $('#m-class').setAttribute('aria-pressed', String(state.project.mode !== 'script'));
+  $('#m-script').setAttribute('aria-pressed', String(state.project.mode === 'script'));
+}
+const snapV = v => snap > 1 ? Math.round(v / snap) * snap : Math.round(v);
+
+function addWidget(type, opts) {
+  opts = opts || {};
+  const spec = SPEC[type];
+  let parent = opts.parent !== undefined ? opts.parent : null, x, y;
+  if (opts.absX !== undefined) {
+    const pa = parent ? absPos(byId(parent)) : { x: 0, y: 0 };
+    x = opts.absX - pa.x; y = opts.absY - pa.y;
+  } else {
+    const sel = selItem();
+    if (sel && sel.type === 'CTkFrame') parent = sel.id;
+    const siblings = kids(parent).length;
+    x = 16 + (siblings % 8) * 18; y = 16 + (siblings % 8) * 18;
+  }
+  const pw = parent ? byId(parent).w : state.project.width, ph = parent ? byId(parent).h : state.project.height;
+  const it = { id: newId(), type, name: nextName(type), parent, x: 0, y: 0, w: Math.min(spec.w, pw), h: Math.min(spec.h, ph), props: JSON.parse(JSON.stringify(spec.props || {})) };
+  it.x = clamp(snapV(x), 0, Math.max(0, pw - it.w));
+  it.y = clamp(snapV(y), 0, Math.max(0, ph - it.h));
+  state.items.push(it);
+  state.selected = it.id;
+  refreshAll();
+  commit();
+  return it;
+}
+
+function duplicateSel() {
+  const it = selItem(); if (!it) return;
+  const pw = it.parent ? byId(it.parent).w : state.project.width, ph = it.parent ? byId(it.parent).h : state.project.height;
+  const dx = clamp(it.x + 12, 0, Math.max(0, pw - it.w)) - it.x, dy = clamp(it.y + 12, 0, Math.max(0, ph - it.h)) - it.y;
+  const copy = JSON.parse(JSON.stringify(it));
+  copy.id = newId(); copy.x += dx; copy.y += dy; copy.name = uniqueName(it.name);
+  state.items.push(copy);
+  (function cloneKids(srcId, dstId) {
+    for (const c of kids(srcId)) {
+      if (c.id === dstId) continue;
+      const cc = JSON.parse(JSON.stringify(c)); cc.id = newId(); cc.parent = dstId; cc.name = uniqueName(c.name);
+      state.items.push(cc);
+      if (c.type === 'CTkFrame') cloneKids(c.id, cc.id);
+    }
+  })(it.id, copy.id);
+  state.selected = copy.id;
+  refreshAll(); commit();
+}
+function deleteSel() {
+  const it = selItem(); if (!it) return;
+  const gone = descendants(it.id); gone.add(it.id);
+  state.items = state.items.filter(i => !gone.has(i.id));
+  state.selected = null;
+  refreshAll(); commit();
+}
+function moveZ(dir) {
+  const it = selItem(); if (!it) return;
+  const sibs = kids(it.parent);
+  const i = sibs.indexOf(it), j = i + dir;
+  if (j < 0 || j >= sibs.length) return;
+  const a = state.items.indexOf(it), b = state.items.indexOf(sibs[j]);
+  state.items[a] = sibs[j]; state.items[b] = it;
+  refreshAll(); commit();
+}
+
+/* ---------- pointer interactions on the window ---------- */
+function frameAt(cx, cy, exclude) {
+  const els = document.elementsFromPoint ? document.elementsFromPoint(cx, cy) : [];
+  for (const el of els) {
+    if (el.classList && el.classList.contains('w') && el.dataset.type === 'CTkFrame' && !(exclude && exclude.has(el.dataset.id))) return el.dataset.id;
+  }
+  return null;
+}
+function markDrop(id) {
+  $$('.w.droptarget').forEach(e => e.classList.remove('droptarget'));
+  if (id) { const e = $('.w[data-id="' + id + '"]'); if (e) e.classList.add('droptarget'); }
+}
+
+function startMove(e, it) {
+  const sx = e.clientX, sy = e.clientY;
+  const a0 = absPos(it);
+  const excl = descendants(it.id); excl.add(it.id);
+  let moved = false;
+  const mv = ev => {
+    const dx = (ev.clientX - sx) / zoom, dy = (ev.clientY - sy) / zoom;
+    if (!moved && Math.hypot(dx, dy) * zoom < 3) return;
+    moved = true;
+    const tgt = frameAt(ev.clientX, ev.clientY, excl);
+    if ((it.parent || null) !== tgt) {
+      it.parent = tgt;
+      const i = state.items.indexOf(it); state.items.splice(i, 1); state.items.push(it);
+    }
+    const pa = tgt ? absPos(byId(tgt)) : { x: 0, y: 0 };
+    const pw = tgt ? byId(tgt).w : state.project.width, ph = tgt ? byId(tgt).h : state.project.height;
+    it.x = clamp(snapV(a0.x + dx - pa.x), 0, Math.max(0, pw - it.w));
+    it.y = clamp(snapV(a0.y + dy - pa.y), 0, Math.max(0, ph - it.h));
+    renderClient(); markDrop(tgt); updateStatus(); refreshGeom();
+  };
+  const up = () => {
+    document.removeEventListener('pointermove', mv); document.removeEventListener('pointerup', up); document.removeEventListener('pointercancel', up);
+    markDrop(null);
+    if (moved) { renderLayers(); scheduleCode(); commit(); }
+  };
+  document.addEventListener('pointermove', mv); document.addEventListener('pointerup', up); document.addEventListener('pointercancel', up);
+}
+
+function startResize(e, it, dir) {
+  const sx = e.clientX, sy = e.clientY;
+  const s = { x: it.x, y: it.y, w: it.w, h: it.h };
+  const pw = it.parent ? byId(it.parent).w : state.project.width, ph = it.parent ? byId(it.parent).h : state.project.height;
+  const mv = ev => {
+    const dx = (ev.clientX - sx) / zoom, dy = (ev.clientY - sy) / zoom;
+    let x = s.x, y = s.y, w = s.w, h = s.h;
+    if (dir.includes('e')) w = s.w + dx;
+    if (dir.includes('s')) h = s.h + dy;
+    if (dir.includes('w')) { x = s.x + dx; w = s.w - dx; }
+    if (dir.includes('n')) { y = s.y + dy; h = s.h - dy; }
+    const right = snapV(s.x + s.w + (dir.includes('e') ? dx : 0)), bottom = snapV(s.y + s.h + (dir.includes('s') ? dy : 0));
+    if (dir.includes('w')) { x = snapV(x); w = (s.x + s.w) - x; } else if (dir.includes('e')) w = right - s.x;
+    if (dir.includes('n')) { y = snapV(y); h = (s.y + s.h) - y; } else if (dir.includes('s')) h = bottom - s.y;
+    if (w < MIN) { if (dir.includes('w')) x = s.x + s.w - MIN; w = MIN; }
+    if (h < MIN) { if (dir.includes('n')) y = s.y + s.h - MIN; h = MIN; }
+    if (x < 0) { w += x; x = 0; }
+    if (y < 0) { h += y; y = 0; }
+    if (x + w > pw) w = pw - x;
+    if (y + h > ph) h = ph - y;
+    it.x = Math.round(x); it.y = Math.round(y); it.w = Math.max(MIN, Math.round(w)); it.h = Math.max(MIN, Math.round(h));
+    renderClient(); updateStatus(); refreshGeom(); scheduleCode();
+  };
+  const up = () => {
+    document.removeEventListener('pointermove', mv); document.removeEventListener('pointerup', up); document.removeEventListener('pointercancel', up);
+    commit();
+  };
+  document.addEventListener('pointermove', mv); document.addEventListener('pointerup', up); document.addEventListener('pointercancel', up);
+}
+
+function blurActive() { const a = document.activeElement; if (a && a !== document.body && a.blur && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) a.blur(); }
+$('#win').addEventListener('pointerdown', e => {
+  if (e.button !== undefined && e.button !== 0) return;
+  const hd = e.target.closest('[data-handle]');
+  const it0 = selItem();
+  if (hd && it0) { e.preventDefault(); blurActive(); startResize(e, it0, hd.dataset.handle); return; }
+  const w = e.target.closest('.w');
+  if (w) {
+    e.preventDefault(); blurActive();
+    const it = byId(w.dataset.id);
+    if (it) { select(it.id); startMove(e, it); }
+    return;
+  }
+  blurActive();
+  select(null);
+});
+
+/* palette: click adds; mouse can also drag a tile onto the window */
+function buildPalette() {
+  const box = $('#palette');
+  for (const type of Object.keys(SPEC)) {
+    const b = mk('button', null, null, 'tile');
+    b.type = 'button'; b.dataset.type = type;
+    b.insertAdjacentHTML('afterbegin', icon(type));
+    b.appendChild(mk('span', null, SPEC[type].label));
+    b.title = 'Add ' + SPEC[type].label + ' (click, or drag onto the window)';
+    b.addEventListener('click', () => { if (suppressClick) return; addWidget(type); if (isPhone()) setView('design'); });
+    b.addEventListener('pointerdown', e => paletteDown(e, type));
+    box.appendChild(b);
+  }
+}
+function paletteDown(e, type) {
+  if (e.pointerType !== 'mouse' || e.button !== 0) return;
+  const sx = e.clientX, sy = e.clientY;
+  let ghost = null;
+  const mv = ev => {
+    if (!ghost && Math.hypot(ev.clientX - sx, ev.clientY - sy) > 5) { ghost = mk('div', null, SPEC[type].label, 'ghost'); document.body.appendChild(ghost); }
+    if (ghost) {
+      ghost.style.left = ev.clientX + 'px'; ghost.style.top = ev.clientY + 'px';
+      markDrop(frameAt(ev.clientX, ev.clientY, null));
+    }
+  };
+  const up = ev => {
+    document.removeEventListener('pointermove', mv); document.removeEventListener('pointerup', up);
+    markDrop(null);
+    if (ghost) {
+      ghost.remove();
+      suppressClick = true; setTimeout(() => { suppressClick = false; }, 60);
+      const r = $('#client').getBoundingClientRect();
+      if (ev.clientX >= r.left && ev.clientX <= r.right && ev.clientY >= r.top && ev.clientY <= r.bottom) {
+        const sp = SPEC[type];
+        addWidget(type, { parent: frameAt(ev.clientX, ev.clientY, null), absX: snapV((ev.clientX - r.left) / zoom - sp.w / 2), absY: snapV((ev.clientY - r.top) / zoom - sp.h / 2) });
+      }
+    }
+  };
+  document.addEventListener('pointermove', mv); document.addEventListener('pointerup', up);
+}
+
+/* ---------- code generation ---------- */
+function pyv(v) { return typeof v === 'string' ? JSON.stringify(v) : String(v); }
+function genCode(project, items) {
+  const cls = project.mode !== 'script';
+  const pre = cls ? 'self.' : '';
+  const root = cls ? 'self' : 'app';
+  const ind = cls ? '        ' : '';
+  const kidsOf = pid => items.filter(i => (i.parent || null) === (pid || null));
+  const byIdL = id => items.find(i => i.id === id);
+  const order = [];
+  (function walk(pid) { for (const it of kidsOf(pid)) { order.push(it); if (it.type === 'CTkFrame') walk(it.id); } })(null);
+
+  const groups = new Map(), radioVal = new Map();
+  for (const it of order) {
+    if (it.type !== 'CTkRadioButton') continue;
+    const g = ident(it.props.group || 'group_1');
+    let grp = groups.get(g);
+    if (!grp) { grp = { n: 0, sel: 0 }; groups.set(g, grp); }
+    grp.n++; radioVal.set(it.id, grp.n);
+    if (it.props.selected) grp.sel = grp.n;
+  }
+
+  const handlers = [];
+  const call = (fn, args) => {
+    const one = fn + '(' + args.join(', ') + ')';
+    if ((ind + one).length <= 88) return [ind + one];
+    return [ind + fn + '(', ...args.map(a => ind + '    ' + a + ','), ind + ')'];
+  };
+  const opt = (a, p, k, name) => { if (p[k] !== undefined && p[k] !== '' && p[k] !== null) a.push((name || k) + '=' + pyv(p[k])); };
+  const font = (a, p) => {
+    const f = [];
+    if (num(p.font_size, 0)) f.push('size=' + p.font_size);
+    if (p.font_weight) f.push('weight=' + JSON.stringify(p.font_weight));
+    if (f.length) a.push('font=ctk.CTkFont(' + f.join(', ') + ')');
+  };
+  const cmd = (it, a, withValue) => {
+    if (!it.props.command) return;
+    handlers.push({ name: 'on_' + it.name, value: withValue, label: it.name });
+    a.push('command=' + (cls ? 'self.' : '') + 'on_' + it.name);
+  };
+  const disabled = (a, p) => { if (p.disabled) a.push('state="disabled"'); };
+
+  const out = [];
+  if (groups.size) {
+    for (const [g, grp] of groups) out.push(ind + pre + 'var_' + g + ' = ctk.IntVar(value=' + grp.sel + ')');
+    out.push('');
+  }
+  for (const it of order) {
+    const p = it.props, v = pre + it.name;
+    const parentRef = it.parent && byIdL(it.parent) ? pre + byIdL(it.parent).name : root;
+    const a = [parentRef, 'width=' + it.w, 'height=' + it.h];
+    const after = [];
+    switch (it.type) {
+      case 'CTkButton':
+        a.push('text=' + pyv(p.text || '')); font(a, p);
+        opt(a, p, 'fg_color'); opt(a, p, 'hover_color'); opt(a, p, 'text_color'); opt(a, p, 'border_width'); opt(a, p, 'border_color'); opt(a, p, 'corner_radius');
+        cmd(it, a, false); disabled(a, p); break;
+      case 'CTkLabel':
+        a.push('text=' + pyv(p.text || '')); font(a, p); opt(a, p, 'text_color'); opt(a, p, 'fg_color'); opt(a, p, 'corner_radius');
+        if (p.anchor) a.push('anchor=' + pyv(p.anchor)); break;
+      case 'CTkEntry':
+        opt(a, p, 'placeholder_text'); if (p.show) a.push('show=' + pyv(String(p.show)[0])); font(a, p);
+        opt(a, p, 'fg_color'); opt(a, p, 'text_color'); opt(a, p, 'border_color'); opt(a, p, 'border_width'); opt(a, p, 'corner_radius');
+        if (p.value) after.push(v + '.insert(0, ' + pyv(p.value) + ')');
+        if (p.disabled) after.push(v + '.configure(state="disabled")'); break;
+      case 'CTkTextbox':
+        font(a, p); opt(a, p, 'fg_color'); opt(a, p, 'text_color'); opt(a, p, 'border_width'); opt(a, p, 'border_color'); opt(a, p, 'corner_radius'); opt(a, p, 'wrap');
+        if (p.value) after.push(v + '.insert("0.0", ' + pyv(p.value) + ')');
+        if (p.disabled) after.push(v + '.configure(state="disabled")'); break;
+      case 'CTkCheckBox':
+        a.push('text=' + pyv(p.text || '')); font(a, p); opt(a, p, 'fg_color'); opt(a, p, 'hover_color'); opt(a, p, 'border_color'); opt(a, p, 'text_color'); opt(a, p, 'border_width'); opt(a, p, 'corner_radius');
+        cmd(it, a, false); disabled(a, p);
+        if (p.checked) after.push(v + '.select()'); break;
+      case 'CTkRadioButton': {
+        const g = ident(p.group || 'group_1');
+        a.push('text=' + pyv(p.text || '')); font(a, p); opt(a, p, 'fg_color'); opt(a, p, 'hover_color'); opt(a, p, 'border_color'); opt(a, p, 'text_color');
+        a.push('variable=' + pre + 'var_' + g, 'value=' + radioVal.get(it.id));
+        cmd(it, a, false); disabled(a, p); break;
+      }
+      case 'CTkSwitch':
+        a.push('text=' + pyv(p.text || '')); font(a, p); opt(a, p, 'fg_color'); opt(a, p, 'progress_color'); opt(a, p, 'button_color'); opt(a, p, 'text_color');
+        cmd(it, a, false); disabled(a, p);
+        if (p.on) after.push(v + '.select()'); break;
+      case 'CTkSlider':
+        a.push('from_=' + num(p.from_, 0), 'to=' + num(p.to, 1)); if (num(p.steps, 0)) a.push('number_of_steps=' + p.steps);
+        opt(a, p, 'fg_color'); opt(a, p, 'progress_color'); opt(a, p, 'button_color');
+        cmd(it, a, true); disabled(a, p);
+        after.push(v + '.set(' + num(p.value, 0.5) + ')'); break;
+      case 'CTkProgressBar':
+        opt(a, p, 'fg_color'); opt(a, p, 'progress_color');
+        after.push(v + '.set(' + clamp(num(p.value, 0.5), 0, 1) + ')'); break;
+      case 'CTkComboBox':
+        a.push('values=' + JSON.stringify(listVals(p.values))); font(a, p); opt(a, p, 'fg_color'); opt(a, p, 'border_color'); opt(a, p, 'button_color'); opt(a, p, 'text_color');
+        cmd(it, a, true); disabled(a, p);
+        if (p.value) after.push(v + '.set(' + pyv(p.value) + ')'); break;
+      case 'CTkOptionMenu':
+        a.push('values=' + JSON.stringify(listVals(p.values))); font(a, p); opt(a, p, 'fg_color'); opt(a, p, 'button_color'); opt(a, p, 'text_color');
+        cmd(it, a, true); disabled(a, p);
+        if (p.value) after.push(v + '.set(' + pyv(p.value) + ')'); break;
+      case 'CTkSegmentedButton': {
+        const vals = listVals(p.values);
+        a.push('values=' + JSON.stringify(vals)); font(a, p); opt(a, p, 'fg_color'); opt(a, p, 'selected_color'); opt(a, p, 'unselected_color'); opt(a, p, 'text_color');
+        cmd(it, a, true); disabled(a, p);
+        if (p.value && vals.includes(p.value)) after.push(v + '.set(' + pyv(p.value) + ')'); break;
+      }
+      case 'CTkFrame':
+        opt(a, p, 'fg_color'); opt(a, p, 'border_width'); opt(a, p, 'border_color'); opt(a, p, 'corner_radius'); break;
+    }
+    out.push(...call(v + ' = ctk.' + it.type, a));
+    out.push(ind + v + '.place(x=' + it.x + ', y=' + it.y + ')');
+    for (const s of after) out.push(ind + s);
+    out.push('');
+  }
+  while (out.length && out[out.length - 1] === '') out.pop();
+
+  const L = [];
+  L.push('import customtkinter as ctk', '');
+  L.push('ctk.set_appearance_mode(' + pyv(project.appearance) + ')');
+  L.push('ctk.set_default_color_theme(' + pyv(project.theme) + ')', '');
+  const winLines = ['title(' + pyv(project.title) + ')', 'geometry("' + project.width + 'x' + project.height + '")'];
+  if (!project.resizable) winLines.push('resizable(False, False)');
+  const hBody = h => h.value ? 'print(' + pyv(h.label + ':') + ', value)' : 'print(' + pyv(h.label + ' clicked') + ')';
+  if (cls) {
+    L.push('', 'class App(ctk.CTk):');
+    L.push('    def __init__(self):', '        super().__init__()');
+    for (const w of winLines) L.push('        self.' + w);
+    if (out.length) L.push('', ...out);
+    for (const h of handlers) L.push('', '    def ' + h.name + '(self' + (h.value ? ', value' : '') + '):', '        ' + hBody(h));
+    L.push('', '', 'if __name__ == "__main__":', '    app = App()', '    app.mainloop()');
+  } else {
+    for (const h of handlers) L.push('', 'def ' + h.name + '(' + (h.value ? 'value' : '') + '):', '    ' + hBody(h));
+    if (handlers.length) L.push('', '');
+    L.push('app = ctk.CTk()');
+    for (const w of winLines) L.push('app.' + w);
+    if (out.length) L.push('', ...out);
+    L.push('', 'app.mainloop()');
+  }
+  return L.join('\n').replace(/\n{4,}/g, '\n\n\n').replace(/^\n+/, '') + '\n';
+}
+
+const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+function highlight(code) {
+  const re = /(#[^\n]*)|("(?:[^"\\\n]|\\.)*")|\b(import|class|def|if|return|pass|True|False|None|as|from)\b|\b(self|super|print)\b|\b(CTk\w*|ctk)\b|\b(\d+(?:\.\d+)?)\b|(?<=\bdef )(\w+)/g;
+  let out = '', last = 0, m;
+  while ((m = re.exec(code))) {
+    out += esc(code.slice(last, m.index));
+    const cl = m[1] ? 'c' : m[2] ? 's' : m[3] ? 'k' : m[4] ? 'k' : m[5] ? 't' : m[6] ? 'n' : 'f';
+    out += '<span class="' + cl + '">' + esc(m[0]) + '</span>';
+    last = m.index + m[0].length;
+  }
+  return out + esc(code.slice(last));
+}
+let codeText = '', codeTimer = 0;
+function renderCode() {
+  codeText = genCode(state.project, state.items);
+  $('#code').innerHTML = highlight(codeText);
+}
+function scheduleCode() { clearTimeout(codeTimer); codeTimer = setTimeout(renderCode, 60); }
+
+/* ---------- toasts, copy, modal ---------- */
+let toastTimer = 0;
+function toast(msg) {
+  const t = $('#toast'); t.textContent = msg; t.classList.add('on');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('on'), 1800);
+}
+async function copyText(text, what, fallbackEl) {
+  try { await navigator.clipboard.writeText(text); toast(what + ' copied'); return; } catch (e) { /* try the fallback */ }
+  try {
+    const ta = mk('textarea', { position: 'fixed', left: '-9999px', top: '0' }); ta.value = text; document.body.appendChild(ta); ta.select();
+    const ok = document.execCommand('copy'); ta.remove();
+    if (ok) { toast(what + ' copied'); return; }
+  } catch (e) { /* fall through */ }
+  if (fallbackEl) selectNode(fallbackEl);
+  toast('Selected. Press Ctrl+C to copy.');
+}
+function selectNode(el) {
+  if (el.select) { el.focus(); el.select(); return; }
+  const r = document.createRange(); r.selectNodeContents(el);
+  const s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
+}
+function copyCode() { renderCode(); copyText(codeText, 'Python code', $('#code')); }
+
+function openData() {
+  $('#data-text').value = JSON.stringify({ app: 'windowsmith', version: 1, project: state.project, items: state.items }, null, 1);
+  $('#modal').hidden = false;
+  $('#data-text').focus();
+}
+function closeData() { $('#modal').hidden = true; }
+
+/* ---------- view switching ---------- */
+const isPhone = () => window.matchMedia('(max-width: 820px)').matches;
+function setView(v) {
+  view = v;
+  $('#app').dataset.view = v;
+  $$('.bottom button').forEach(b => b.setAttribute('aria-current', String(b.dataset.go === v)));
+  $('#v-design').setAttribute('aria-pressed', String(v !== 'code'));
+  $('#v-code').setAttribute('aria-pressed', String(v === 'code'));
+  if (v === 'code') renderCode();
+  requestAnimationFrame(() => { applyZoom(); renderOverlay(); });
+}
+
+/* ---------- wiring ---------- */
+$('#undo').addEventListener('click', undo);
+$('#redo').addEventListener('click', redo);
+$('#btn-copy').addEventListener('click', copyCode);
+$('#btn-copy-top').addEventListener('click', copyCode);
+$('#btn-select').addEventListener('click', () => selectNode($('#code')));
+$('#btn-data').addEventListener('click', openData);
+$('#data-close').addEventListener('click', closeData);
+$('#modal').addEventListener('pointerdown', e => { if (e.target.id === 'modal') closeData(); });
+$('#data-copy').addEventListener('click', () => copyText($('#data-text').value, 'Project data', $('#data-text')));
+$('#data-load').addEventListener('click', () => {
+  try {
+    const o = normalize(JSON.parse($('#data-text').value));
+    state.selected = null;
+    loadProject(o);
+    closeData(); toast('Project loaded');
+  } catch (e) { toast(e && e.message ? e.message : 'Could not read that text'); }
+});
+$('#tpl').addEventListener('change', e => {
+  const k = e.target.value; e.target.value = '';
+  if (!k) return;
+  loadProject(makeTemplate(k));
+  toast('Template loaded. Undo brings your last layout back.');
+  if (isPhone()) setView('design');
+});
+$('#snap').addEventListener('change', e => { snap = +e.target.value; renderClient(); });
+$('#zoom').addEventListener('change', e => { zoomMode = e.target.value === 'fit' ? 'fit' : +e.target.value; applyZoom(); renderOverlay(); });
+$('#btn-mode').addEventListener('click', () => {
+  state.project.appearance = colors().dark ? 'light' : 'dark';
+  refreshAll(); commit();
+});
+$('#v-design').addEventListener('click', () => setView('design'));
+$('#v-code').addEventListener('click', () => setView('code'));
+$$('.bottom button').forEach(b => b.addEventListener('click', () => setView(b.dataset.go)));
+function setMode(m) {
+  state.project.mode = m;
+  $('#m-class').setAttribute('aria-pressed', String(m === 'class'));
+  $('#m-script').setAttribute('aria-pressed', String(m === 'script'));
+  renderCode(); commit();
+}
+$('#m-class').addEventListener('click', () => setMode('class'));
+$('#m-script').addEventListener('click', () => setMode('script'));
+
+document.addEventListener('keydown', e => {
+  if (!$('#modal').hidden) { if (e.key === 'Escape') closeData(); return; }
+  const tag = (e.target && e.target.tagName) || '';
+  const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(tag);
+  const mod = e.ctrlKey || e.metaKey;
+  if (mod && !typing && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
+  if (mod && !typing && (e.key === 'y' || e.key === 'Y')) { e.preventDefault(); redo(); return; }
+  if (typing) return;
+  const it = selItem();
+  if (!it) return;
+  if (mod && (e.key === 'd' || e.key === 'D')) { e.preventDefault(); duplicateSel(); return; }
+  if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); deleteSel(); return; }
+  const step = e.shiftKey ? 10 : 1;
+  const d = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] }[e.key];
+  if (d) {
+    e.preventDefault();
+    const pw = it.parent ? byId(it.parent).w : state.project.width, ph = it.parent ? byId(it.parent).h : state.project.height;
+    it.x = clamp(it.x + d[0], 0, Math.max(0, pw - it.w)); it.y = clamp(it.y + d[1], 0, Math.max(0, ph - it.h));
+    renderClient(); updateStatus(); refreshGeom(); scheduleCode();
+    clearTimeout(startNudge.t); startNudge.t = setTimeout(commit, 350);
+  }
+});
+function startNudge() {}
+
+if (window.ResizeObserver) new ResizeObserver(() => { applyZoom(); renderOverlay(); }).observe($('#stage'));
+else window.addEventListener('resize', () => { applyZoom(); renderOverlay(); });
+if (window.matchMedia) {
+  const mq = window.matchMedia('(prefers-color-scheme: dark)');
+  const f = () => { if (state.project.appearance === 'system') renderClient(); };
+  if (mq.addEventListener) mq.addEventListener('change', f);
+}
+
+/* ---------- boot ---------- */
+(function init() {
+  buildPalette();
+  let loaded = null;
+  try { const s = localStorage.getItem(LS_KEY); if (s) loaded = normalize(JSON.parse(s)); } catch (e) { loaded = null; }
+  const o = (loaded && loaded.items.length) ? loaded : makeTemplate('login');
+  state.project = o.project; state.items = o.items; state.selected = null;
+  history = [snapshot()]; hIndex = 0;
+  refreshAll();
+  updateUndo();
+  setView('design');
+})();
+</script>
